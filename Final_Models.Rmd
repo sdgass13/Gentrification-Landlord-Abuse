@@ -1,0 +1,264 @@
+---
+title: "Final Models"
+output: html_notebook
+---
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+knitr::opts_knit$set(root.dir = '/Users/samgass/Github/Thesis')
+
+tract_panel <- read.csv('tract_panel_final.csv', 
+                        colClasses = c('Tract' = 'character'))
+
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE, message = FALSE, fig.width = 8, fig.height = 5, fig.align = 'center')
+
+library(pglm)
+library(lme4)
+```
+
+
+#1 Models Section 1
+
+##1.1
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+tract_panel$Median_Sale100 = tract_panel$Median_Sale / 100
+model1.1 <- glm(CallsUnit1000 ~ Median_Sale100, 
+                   data = tract_panel, 
+                   family = poisson)
+
+qqnorm(model1.1$residuals)
+hist(model1.1$residuals)
+max(model1.1$residuals)
+View(data.frame(model1.1$residuals))
+
+model1.1 <- glm(CallsUnit1000 ~ Median_Sale100, 
+                   data = tract_panel, 
+                   family = poisson)
+
+qqnorm(model1$residuals)
+hist(model1$residuals)
+```
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+summary(model1.1)
+```
+
+##1.2
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+model1.21 <- pglm(CallsUnit1000 ~ LogSales + Year,
+             index = c("BNT","Year"), 
+             family = poisson,
+             data = tract_panel,
+             model="random")
+
+model1.22 <- pglm(CallsUnit1000 ~ Median_Sale100 + Year,
+             index = c("BNT","Year"), 
+             family = poisson,
+             data = tract_panel,
+             model="within")
+```
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+summary(model1.22)
+```
+
+```{r}
+summary(model1.22)
+```
+
+##1.3
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+model1.31 <- pglm(CallsUnit1000 ~ LagMedSale100_1 + Year,
+                   family = poisson,
+                   data = tract_panel,
+                   model="within", 
+                   index = c("BNT","Year"))
+
+model1.32 <- pglm(CallsUnit1000 ~ LagMedSale100_2 + Year,
+                   family = poisson,
+                   data = tract_panel,
+                   model="within", 
+                  index = c("BNT","Year"))
+
+model1.33 <- pglm(CallsUnit1000 ~ LagMedSale100_3 + Year,
+                   family = poisson,
+                   data = tract_panel,
+                   model="within", 
+                  index = c("BNT","Year"))
+
+```
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+summary(model1.31)
+summary(model1.32)
+summary(model1.33)
+```
+
+
+#Models Section 2
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+tract_panel$year <- as.numeric(tract_panel$Year) + 2003
+stable_data <- tract_panel %>% filter(year < 2015 & year > 2006)
+
+model2.1 <- pglm(CallsUnit1000 ~ Median_Sale100 * pct_stable + LagMedSale100_1 * pct_stable + Year,
+                   data = stable_data,
+                   family = poisson,
+                   index = c("BNT", "Year"),
+                   model="within")
+```
+
+```{r}
+calls = -.011 * (MedSale) + 1.083 * (pct_stable) + .02 * (med_Sale * pct_stable)
+```
+
+
+
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+summary(model2.1)
+```
+
+
+#Model Section 3
+The three way interactive effect is negative, which is not what I am looking for, although the other interactions are in the desired direction. 
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+model3.1 <- pglm(CallsUnit1000 ~  pre_gent + Year, 
+                   index = c("BNT","Year"), 
+                   data = stable_data,
+                   family = poisson,
+                   model = "within")
+```
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+summary(model3.1)
+```
+
+
+```{r}
+model3.2 <- glmer(CallsUnit1000 ~ Median_Sale100 + (pre_gent * pct_stable) + as.factor(Year) + 
+                    (1 + LogSalLag1 | Gentrified) + (1|BNT),
+                 data = stable_data,
+                 family = poisson)
+```
+
+```{r}
+summary(model3.2)
+```
+
+
+```{r}
+model3.3 <- glmer(CallsUnit1000 ~ (Median_Sale100 * pre_gent * pct_stable) + as.factor(Year) + 
+                    (1 + LogSalLag1 | Gentrified) + (1|BNT),
+                 data = stable_data,
+                 family = poisson)
+```
+
+```{r}
+summary(model3.3)
+```
+
+
+
+#Model 3.2
+This model has the most interesting directional effects with random intercepts/slope for gentrified vs. non gentrified tracts. My question here, which I think I figured out, is that I only need random effects for gentrified vs. non gentrifed and not by tract. This is because the model is already running fixed effects for each variable so the between tract differences are accounted for. Correct?
+```{r}
+model3.4 <- glmer(CallsUnit1000 ~ (Median_Sale100 * pre_gent * pct_stable) + as.factor(Year) + 
+                    (1 + LogSales | Gentrified) + (1|BNT),
+                 data = stable_data,
+                 family = poisson)
+```
+
+```{r}
+summary(model3.4)
+```
+
+```{r}
+model3.4 <- glmer(CallsUnit1000 ~ (LogSalLag1 * Gentrified * pct_stable) + as.factor(Year) + 
+                    (1 + LogSalLag1 | Gentrified) + (1|BNT),
+                 data = stable_data,
+                 family = poisson)
+```
+
+```{r}
+summary(model3.4)
+```
+
+
+#Section 4, Gentrified 
+
+```{r}
+gent_only$Median_Sale100 = gent_only$Median_Sale / 100
+gent_only <- filter(gent_only, year > 2007 & year < 2015)
+model4.1  <- glmer(CallsUnit1000 ~ Median_Sale100 + Gentrified_Year * pct_stable + Year + 
+                     (1 + pct_stable | BNT), 
+                   index = c("BNT","Year"), 
+                   data = gent_only,
+                   family = poisson)
+
+summary(model4.1)
+```
+
+```{r}
+model4.2  <- glmer(CallsUnit1000 ~ Median_Sale100 + Year_Before * pct_stable + Year + 
+                     (1 + pct_stable | BNT), 
+                   index = c("BNT","Year"), 
+                   data = gent_only,
+                   family = poisson)
+
+summary(model4.2)
+```
+
+
+```{r}
+model4.3  <- pglm(CallsUnit1000 ~ Two_Before * pct_stable + Year, 
+                   index = c("BNT","Year"), 
+                   data = gent_only,
+                   family = poisson,
+                   model = "within")
+
+summary(model4.3)
+```
+
+
+
+
+
+
+
+
+
+
+
+#Not Sure If I will include model with first differenced data, it always comes out insignificant
+```{r}
+#Final ECM Model
+model3.3 <- lmer(LogCallDiff ~ SaleDiff1 * Gentrified * pct_stable + as.factor(Year) +
+                   LogSalLag1 + LagCallsUnit1000 + (1 + SaleDiff1 | Gentrified),
+                 data = stable_data)
+```
+
+```{r}
+summary(model3.3)
+```
+
+```{r}
+coefs <- data.frame(coef(summary(model3.3)))
+# use normal distribution to approximate p-value
+coefs$p.z <- 2 * (1 - pnorm(abs(coefs$t.value)))
+coefs[, c(1, 4)]
+```
+
+#Random Levels
+This is kind of an interesting result. If I am understanding this completely, it is saying that both the random effects of the individual tracts as well as the random effects of the levels of gentrification have significant effects on the number of calls. 
+
+```{r}
+library(MCMCglmm)
+
+set.seed(45)
+MCMC <- MCMCglmm(CallsUnit1000 ~ 1, random = ~Year + BNT + Gentrified,
+    data = stable_data, family = "poisson",  verbose = FALSE)
+summary(MCMC)
+```
+
+
